@@ -1,0 +1,4 @@
+version: "3"
+services:
+  simple-java-proram:
+    image: pseudofunc/simple-java-program

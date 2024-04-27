@@ -1,0 +1,6 @@
+version: "3"
+services:
+  alpine-date:
+    image: alpine
+    container_name: date_entry
+    entrypoint: ["date"]

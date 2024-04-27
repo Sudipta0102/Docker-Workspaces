@@ -1,0 +1,7 @@
+version: "3"
+services:
+  alpine-bash-entry:
+    image: alpine
+    container_name: alpine-bash
+    entrypoint: ["/bin/sh"]
+# this entrypoint doesn't bring up he interactive bash.
