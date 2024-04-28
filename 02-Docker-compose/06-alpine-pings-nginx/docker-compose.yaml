@@ -2,8 +2,9 @@ version: "3"
 services:
   simple-nginx:
     image: nginx
-    ports:
-      - 80:80
+    # ports are optional here, one doesn't need that to ping
+    #ports:
+    #  - 80:80
   simple-alpine:
     image: alpine
     entrypoint: "ping -c 8 simple-nginx"

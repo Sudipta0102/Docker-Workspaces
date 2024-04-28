@@ -1,0 +1,21 @@
+version: "3"
+services:
+  simple-nginx:
+    image: nginx
+  simple-alpine:
+    image: alpine
+    entrypoint: "wget http://simple-nginx"
+    depends_on: 
+      - simple-nginx
+    working_dir: /a/b/c 
+    volumes:
+      - .:/a/b/c
+
+# working directory, the place in which file gets saved in alpine
+# then in volumes, guest path has to the same one, from where host machine will pick up the file.
+
+# one more thing to remember here is, we don't need port mapping here because it's 
+# in the same network.
+
+# one thing to observe here is in entrypoint and depends_on or anywhere necessary , 
+# service name has to be written not the image name.
