@@ -13,3 +13,9 @@ RUN apk add openjdk8
 WORKDIR /usr/share/simplejava
 ADD Test.java Test.java
 ENTRYPOINT javac Test.java && java Test
+
+# docker build -t=pseudofunc/alpine_simple_program .
+# docker run pseudofunc/alpine_simple_program
+
+# to push the image into docker hub:
+# docker push pseudofunc/alpine_simple_program:latest    
