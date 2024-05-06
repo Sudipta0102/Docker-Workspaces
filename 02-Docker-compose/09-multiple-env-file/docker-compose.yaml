@@ -1,0 +1,9 @@
+version: "3"
+services:
+  multiple-env-file-demo:
+    image: vinsdocker/sel-app:${VERSION}
+    ports:
+      - ${PORT}:80
+
+# docker-compose --env-file dev.env up
+# docker-compose --env-file qa.env up      

@@ -1,0 +1,67 @@
+1. Router:
+    A. It's the entry point of he grid
+    B. The router takes care of forwarding the requests to the correct component.
+    C. All the external request from the client will be received by router at first and depending
+    on the request, the router behaves differently. 
+        a. New request: if router receives a new request, the roter will forward to the SESSION QUEUE.
+        then session queue will trigger the request through the EVENT-BUS.
+             The distributor, where the new session creation will be handled, will receive the event and
+        poll the new session queue to get new session request.
+
+        b. Existing request: In case of existing session, the router will send the session id to SESSION
+        MAP and the session map will return the NODE where the session is running. 
+            After this, the router will forward the request to the relevant node.
+    D. The router also aims to balance the load in the grid by sending the request to the component
+    that is able to handle them better without overloading any component that is not needed in the 
+    process.
+
+
+2. Distributor:
+    A. The distributor is aware of all nodes and their capabilities.
+    B. Main role of DISTRIBUTOR is to receive the new session requests and find the suitable node 
+    where the session can be created. 
+    C. After the session is created, the distributor stores the relation between session id and
+    node where the session is being executed in the SESSION MAP.
+
+3. Node:
+    A. Nodes can be several.
+    B. Each node gets its own task for the available browser the node posseses. 
+    C. The node registers itself to the distributor through the event-bus and its configuration
+    is sent as part of registration message. 
+    D. Node only executes received command. It doesn't evaluate, make judgements or controls them.
+
+Session-Map:
+    A. Session map is a data store where the information of session id of ongoing sessions and 
+    corresponding nodes are kept. 
+    B. It supports the router in the process of forwarding  a request to any node. 
+    C. The router will ask the session map for the node associated with a session id when starting
+    the grid in its fully distributed mode. 
+    D. The SESSION MAP is the first component that should be started. 
+
+Session-Queue:
+    A. This is the only component which can communicate with the session queue. (What's this now?!)
+    B. The session queue receives the session request from the router and adds it to the queue.
+    C. The queue waits until it receives the response for the request. 
+    D. In case of time-out, the request gets rejected immediately  and not added to the queue.
+    E. Upon successfully adding the request to the queue, event-bus triggers an event
+    F. Then the distributor picks up the event and polls the session queue.
+    G. And then the distributor attempts to create a new session. 
+        a. If any of the requested capabilities does not exist in any of the registered nodes, then
+    the request gets rejected immediately and the client receives a response. 
+        b. If it matches any node, distributor attempts to get the available slot.
+            1. then if all the nodes are busy, the distributor will ask the queue to add the request
+            in front of the queue.
+            2. the distributor receives the request again after request-retry-interval and it will keep
+            doing that until time-out or success.
+    7. After getting the available slot and session creation, their distributor passes the session 
+    response to the session-queue via the event-bus.
+    8. the session queue respnds to the client when it receives the event. 
+    
+Event-bus:
+    A. The event-bus serves as a communication path between the nodes, distributor, session-queue 
+    and session-map. 
+    B. The gris does most of its internal communication through messsages avvoiding expensive 
+    http calls.    
+
+
+Also, there is standalone mode which I need to know about.       

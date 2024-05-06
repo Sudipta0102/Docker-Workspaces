@@ -1,0 +1,12 @@
+version: "3"
+services:
+  simple-nginx:
+    image: nginx
+    # ports are optional here, one doesn't need that to ping
+    #ports:
+    #  - 80:80
+
+# thing to look at is:  -f filename.yaml
+# docker-compose -f simple-nginx.yaml up -d (-d is detached, meaning it'll run in the background)    
+# then,
+# docker-compose -f .\simple-alpine.yaml up

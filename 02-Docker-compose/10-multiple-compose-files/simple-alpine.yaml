@@ -1,0 +1,5 @@
+version: "3"
+services:
+  simple-alpine:
+    image: alpine
+    entrypoint: "ping -c 8 simple-nginx"
