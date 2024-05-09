@@ -1,0 +1,38 @@
+version: "3"
+services:
+  hub:
+    image: selenium/hub:4.16
+    ports:
+      - 4444:4444
+  chrome:
+    image: selenium/node-chrome:4.16
+    shm_size: '2g'
+    depends_on:
+      - hub
+    # by deploying you are creating 5 nodes of chrome container.
+    # you can certainly override this number in the command line.
+    # let's in the docker-compose file we have 5 chrome and 2 
+    # firefox nodes. Then if we run from command line the following:
+    #     docker-compose up --scale chrome=3 -d  
+    # it will give 3 chrome and 2 firefox nodes (it will not change
+    # the firefox node numbers because we didn't explicitly change from 
+    # the command line.). To do that, the following should do,
+    #      docker-compose up --scale chrome=3 --scale firefox=0 -d
+    # Now there is 3 chrome and 1 firefox.
+    deploy:
+      replicas: 5  
+    environment:
+    - SE_EVENT_BUS_HOST=hub
+    - SE_EVENT_BUS_PUBLISH_PORT=4442
+    - SE_EVENT_BUS_SUBSCRIBE_PORT=4443
+  firefox:
+    image: selenium/node-firefox:4.16
+    shm_size: '2g'
+    depends_on:
+      - hub
+    deploy:
+      replicas: 2  
+    environment:
+    - SE_EVENT_BUS_HOST=hub
+    - SE_EVENT_BUS_PUBLISH_PORT=4442
+    - SE_EVENT_BUS_SUBSCRIBE_PORT=4443
