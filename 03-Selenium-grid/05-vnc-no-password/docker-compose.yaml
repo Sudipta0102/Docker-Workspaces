@@ -1,7 +1,6 @@
-# to increase Max-concureny of a node two environment variables 
-# need to be added.
-#     - SE_NODE_OVERRIDE_MAX_SESSIONS=true
-#     - SE_NODE_MAX_SESSIONS=4
+# to watch live video of execution via grid url, the password is secret.
+# an environment variable can be set to disable the password.
+#           SE_VNC_NO_PASSWORD=1
 version: "3"
 services:
   hub:
@@ -19,6 +18,7 @@ services:
       - SE_EVENT_BUS_SUBSCRIBE_PORT=4443
       - SE_NODE_OVERRIDE_MAX_SESSIONS=true
       - SE_NODE_MAX_SESSIONS=4
+      - SE_VNC_NO_PASSWORD=1
   firefox:
     image: selenium/node-firefox:4.16
     shm_size: '2g'
@@ -29,6 +29,7 @@ services:
       - SE_EVENT_BUS_PUBLISH_PORT=4442
       - SE_EVENT_BUS_SUBSCRIBE_PORT=4443
       - SE_NODE_OVERRIDE_MAX_SESSIONS=true
-      - SE_NODE_MAX_SESSIONS=4    
+      - SE_NODE_MAX_SESSIONS=4
+      - SE_VNC_NO_PASSWORD=1    
 
       

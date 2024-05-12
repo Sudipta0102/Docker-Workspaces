@@ -1,3 +1,5 @@
+# just to note that, when doing all this, we can still override the number of
+# repliocas in the command line by using --scale.
 version: "3"
 services:
   hub:
