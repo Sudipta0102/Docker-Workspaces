@@ -1,0 +1,286 @@
+The Overall Goal:
+To run the whole test suite inside a docker container
+_____________________________________________________________________________________
+
+***To achieve that, we need to get rid of the maven dependency inside container.***
+Why? because maven image takes 500mb as opposed to the java image which takes at about 
+100mb. So it would be lightweight. This is one of the reasons.
+java base image: docker pull bellsoft/liberica-openjdk-alpine:latest (version 22 now)
+
+One more thing to notice is, we don't ship maven to production. we only ship jars. The 
+idea here is to follow the same approach. In the docker container somehow we need to get
+rid of maven dependency.
+
+So the basis is this:
+1. we talke the jar files (created using mvn clean package command) to a container
+which already has java installed on it(see above java base image).
+2. then we run the jars using java -cp <jarfile> command (I think we use a Dockerfile
+for this)
+
+_____________________________________________________________________________________
+
+Maven plugins:
+
+in the pom.xml we use 5 plugins:
+1. maven-compiler-plugin
+2. maven-surefire-plugin
+3. maven-dependency-plugin
+4. maven-jar-plugin
+5. maven-resources-plugin
+
+To run our tests successfully, we need three basic things, 
+1. all the external libraries (maven dependency which is downloaded 
+in the External libraries)
+2. jar files
+3. all the resources like property files, test data etc.
+
+that's where our 3rd, 4th and 5th plugin come into picture respectively.
+In this project we put them in ${project.build.directory}/docker-resources/libs.(where
+all the other libraries are present)
+File name is selenium-docker-tests.jar.
+
+We are going to emphasize this folder to run our tests inside the container.
+
+ONE QUESTION:
+with jar plugin, the created jar files has all the resources, then why do we need
+resources to be copied with the help of resources plugin in the docker-resources folder??
+
+The answer is, to bring flexibility in the debugging and also, the handling of test-suite
+files that can be done from outside. That's an option we can create to make our life easier.
+Also, in the jar-plugin, an option to not include all those resources in the jar can be
+created through only by including .class files via <include></include> under
+<configuration></configuration> tag.
+
+this is to be used under jar plugin:
+
+<executions>
+	<execution>
+		<goals>
+			<goal>test-jar</goal>
+		</goals>
+		<!-- this config is to exclude all the resources files and only
+		include test classes. Also, notice how .class files are mentioned.-->
+		<configuration>
+			<includes>**/*.class</includes>
+		</configuration>
+	</execution>
+</executions>
+
+_____________________________________________________________________________________
+
+Let's consider one more scenarios where there is some important file or files which 
+resides in the project base directory, and that need to be included as part of resources
+in the target/docker-resources folder. 
+
+1. 
+To achieve that, we need to use maven-resources-plugin.
+
+under that plugin, we can make use of:
+<executions>
+    <execution>
+        <configuration>
+            (packake.directory is defined as target/docker-resources folder in the pom.xml)
+            <outputDirectory>${packake.directory}</outputDirectory>
+            <resources>
+                <resource>src/test/resources</resource>
+                <resource>
+                    <directory>.</directory> (. means current)
+                    <includes>
+                        <include>important-resource-file</include>
+                    </includes>
+                </resource>
+            </resources>
+        </configuration>
+    </execution>
+</executions>
+
+2. 
+Other solution is to make batch or bash file and copy the file into docker-resources folder.
+
+bash file:
+
+#!/bin/bash
+
+mvn clean package -DskipTests
+cp important-resource-file.txt target/docker-resources/important-resource-file.txt
+
+_____________________________________________________________________________________
+
+Now that all the jar creation and copying of resources are done via maven plugins, we are
+set to run the test in the localhost WITOUT MAVEN.
+
+the command to do that is:
+java -cp 'libs/*' org.testng.TestNG ./test-suites/testng.xml
+for running multiple testng file:
+java -cp 'libs/*' org.testng.TestNG ./test-suites/*.xml
+
+*** Thing to notice here is all the pom.xml settings are invalid, because we are not
+considering maven here. So with everything surefire settings will also be gone.
+So, to run from remote, we need to change values in default.properties I suppose.
+
+_____________________________________________________________________________________
+
+TESTNG parameters:
+
+the command to do that is:
+java -cp 'libs/*' org.testng.TestNG ./test-suites/testng.xml
+
+for running multiple testng file:
+java -cp 'libs/*' org.testng.TestNG ./test-suites/*.xml
+
+to change the threadcount from the command line:
+java -cp 'libs/*' org.testng.TestNG -threadcount 2 ./test-suites/testng.xml
+
+to change test-output folder to something else, -d is used:
+java -cp 'libs/*' org.testng.TestNG -d report .\test-suites\FlightReservation.xml
+
+
+SYSTEM PROPERTIES:
+
+browser option:
+java -Dbrowser=chrome -cp 'libs/*' org.testng.TestNG test-suites/flight-reservation.xml
+Note: This didn't work for me when i did -Dbrowser=firefox. Still opened chrome.
+
+to run in selenium grid:
+java -Dselenium-grid-enabled=true -Dselenium-grid-hubHost=localhost -cp 'libs/*' org.testng.TestNG .\test-suites\FlightReservation.xml
+
+in selenium grid with specific thread count:
+java -Dselenium-grid-enabled=true -Dselenium-grid-hubHost=localhost -cp 'libs/*' org.testng.TestNG .\test-suites\FlightReservation.xml -threadcount 2
+
+_____________________________________________________________________________________
+
+now the Dockerfile needs to be created at the project root directory.
+and then using bellsoft java image and adding all our necessary jar, resources etc
+one image needs to be built. There the entrypoint should be above command to run the tests. 
+
+The obvious thing is test will fail at this point, because there is no browser in the image
+that was created. And there comes the grid.
+
+Also in the grid what would be localhost?
+when we are running grid from my machine, and also tests jar and everything else is present
+also in my machine. Then for the grid hub would localhost.
+
+now, in this case my jar is in a diffrent machine (some container). and the grid is being
+run in my machine. So from container perspective, grid is run in a different machine which 
+happens to be my machine and instead of writing localhost, one should write ip address where
+grid is being run. Like this:
+
+java -Dselenium-grid-enabled=true -Dselenium-grid-hubhost={ip-of-the-grid-machine} -cp 'libs/*' org.testng.TestNG test-suites/FlightReservation.xml
+
+
+_____________________________________________________________________________________
+
+one more thing we have to have volume mapping to see the testng-report. So docker need to run
+like this:
+docker run -it -v C:\Users\Baban\Docker-Workspaces\share\selenium-docker-result:/home/selenium-docker/test-output pseudofunc/seleniumindocker 
+
+The Dockerfile is as follows:
+
+# this dockerfile needs to be in project root directory
+FROM bellsoft/liberica-openjdk-alpine:latest
+# define workdir, otherwise it will be root
+WORKDIR /home/selenium-docker
+# add all the necesssary files to the workdir
+ADD target/docker-resources ./
+
+# environment variables
+# BROWSER
+# HUB_HOST
+# TEST_SUITE
+# THREAD_COUNT
+
+# add the entrypoint to run the tests
+ENTRYPOINT java -cp 'libs/* ' \
+                        -Dselenium-grid-enabled=true \
+                        -Dselenium-grid-hubhost=${HUB_HOST} \
+                        -Dbrowser=${BROWSER} \
+                        org.testng.TestNG \
+                        -threadcount ${THREAD_COUNT} \
+                        test-suites/${TEST_SUITE}
+
+
+above is the docker file.
+
+to build this image:
+docker run -t=pseudofunc/selindoc .
+
+to run this image:
+run with environment variable and volume mapping
+docker run -e BROWSER=firefox -e HUB_HOST=192.168.0.119 -e TEST_SUITE=FlightReservation.xml -e THREAD_COUNT=2 pseudofunc/selindoc -v C:\Users\Baban\Docker-Workspaces\share\selenium-docker-result:/home/selenium-docker/test-output
+
+to run all the test suite files:
+docker run -e BROWSER=firefox -e HUB_HOST=192.168.0.104 -e TEST_SUITE=*.xml -e THREAD_COUNT=2 -v C:\Users\Baban\Docker-Workspaces\share\selenium-docker-result:/home/selenium-docker/test-output pseudofunc/selindoc
+
+_____________________________________________________________________________________
+
+Now that we can run those tests inside the container from the command line using 
+above commands. We should try to automate that using docker-compose file.
+
+so, as usual we create a 
+1. hub
+2. chrome
+3. firefox for now to run the grid.
+and then one more service which uses the image that we created before this using 
+bellsoft base image. In that we mention all the environment vars and volume mapping(for
+reports). 
+
+then we try to docker-compose up. Surprising even though all the nodes (ff, chrome) and all other
+necessary files are present, because of timing issues, the test suite didn't even start.
+(mainly because all the nodes have taken more time than expected).
+
+so, to encounter this problem, we need check the status of the grid by using this:
+ curl -s http://localhost:4444/status | jq .value.ready ==> this is true or false
+ ( -s is for silent)
+ curl -s http://localhost:4444/status | jq -r .value.message
+ ( -r is raw -> so that in "selenium grid ready" becomes selenium grid ready without
+ double quotes)
+
+ but, another prolblem is our base image(bellsoft) doesn't have them. So, when building 
+ the image, we need to install them explicitly through the Dockerfile. So the updated 
+ Dockerfile would be:
+
+ # this dockerfile needs to be in project root directory
+FROM bellsoft/liberica-openjdk-alpine:latest
+# add curl and jq to check the grid status
+RUN apk add curl jq
+# define workdir, otherwise it will be root
+WORKDIR /home/selenium-docker
+# add all the necesssary files to the workdir
+ADD target/docker-resources ./
+ADD runner.sh runner.sh
+
+# environment variables
+# BROWSER
+# HUB_HOST
+# TEST_SUITE
+# THREAD_COUNT
+
+# add the entrypoint to run the tests
+# ENTRYPOINT java -cp 'libs/*' -Dselenium-grid-enabled=true -Dselenium-grid-hubhost=${HUB_HOST} -Dbrowser=${BROWSER} org.testng.TestNG -threadcount ${THREAD_COUNT} test-suites/${TEST_SUITE}
+ENTRYPOINT sh runner.sh
+
+# run with environment variable and volume mapping from the command line.
+# docker run -e BROWSER=firefox -e HUB_HOST=192.168.0.119 -e TEST_SUITE=FlightReservation.xml -e THREAD_COUNT=2 -v C:\Users\Baban\Docker-Workspaces\share\selenium-docker-result:/home/selenium-docker/test-output pseudofunc/selindoc
+
+_____________________________________________________________________________________
+
+Another note:
+Curl and jq in windows:
+1. for curl I used git-bash.
+2. jq was not installed by default.
+I got jq using this command:
+curl -L -o /Downloads/jq.exe https://github.com/stedolan/jq/releases/latest/download/jq-win64.exe
+Then, I put the file in the following directory:
+C:\Program Files\Git\usr\bin
+
+_____________________________________________________________________________________
+
+So in a nutshell, what we did here is:
+
+mvn clean package (-DskipTests)
+docker build -t=pseudofunc/selindoc (using the Dockerfile in the project root directory)
+docker-compose up (using docker-compose file which has grid services and the image that
+was built above)
+
+_____________________________________________________________________________________
+
